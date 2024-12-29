@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" version="25.0.3">
   <diagram name="第 1 页" id="O-qFWpGskc9dmL0VEya1">
-    <mxGraphModel dx="1907" dy="2451" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="365" dy="1415" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -197,7 +197,7 @@
             <mxPoint x="240" y="205" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="IjCD7kLmxMDV_zykftfB-85" value="0x0040 记录 棋局的类型；&lt;div&gt;0x00-未知,0x01-红胜,0x02-黑胜,0x03-和棋&lt;/div&gt;" style="edgeLabel;html=1;align=left;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="IjCD7kLmxMDV_zykftfB-84">
+        <mxCell id="IjCD7kLmxMDV_zykftfB-85" value="0x0040 记录 棋局的类型；&lt;div&gt;0x00-全局, 0x01-布局,0x02-中局, 0x03-残局&lt;/div&gt;" style="edgeLabel;html=1;align=left;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="IjCD7kLmxMDV_zykftfB-84">
           <mxGeometry x="-0.0251" y="-2" relative="1" as="geometry">
             <mxPoint x="244" y="7" as="offset" />
           </mxGeometry>
