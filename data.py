@@ -11,6 +11,19 @@ RESULT_WIN_RED   = 1 # 红胜
 RESULT_WIN_BLACK = 2 # 黑胜
 RESULT_PEACE     = 3 # 和棋
 
+class MOVE():
+    def __init__(self, move = 0):
+        self.comment = ""
+
+        # 真正的移动，
+        self._move = move
+
+        # 下一招
+        self.nexts = [] # MOVE 结构
+
+    def addNext(self, next):
+        self.nexts.append(next)
+
 
 class QIPU():
     def __init__(self):
@@ -32,7 +45,9 @@ class QIPU():
         self.commenter = ""
         self.author = "" # 棋谱制作者
 
-        self.move = None
+        # 招法，注意：第一招为空招，self.rootMove.nexts 才是真正的招法
+        # 目的：方便记录第一招 有变招情况
+        self.moveRoot = MOVE()
 
     def __str__(self):
         result = "标题:%s\n" % self.title
@@ -49,21 +64,7 @@ class QIPU():
         result += "棋谱评说者:%s\n" % self.commenter
         result += "棋谱作者:%s\n" % self.author
 
-
         return result
-
-class MOVE():
-    def __init__(self):
-        self.comment = ""
-
-        # 真正的移动，
-        self._move = 0
-
-        # 下一招
-        self.next = None
-
-        # 变招
-        self.brothers
 
 
 

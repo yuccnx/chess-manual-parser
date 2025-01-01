@@ -1,5 +1,8 @@
 #-*- coding: UTF-8 -*-
 
+import os
+from collections import namedtuple
+
 from data import *
 from fen_tool import *
 
@@ -19,98 +22,106 @@ cpcXqf2Piece = [
   21, 20, 19, 18, 17, 18, 19, 20, 21, 22, 22, 23, 23, 23, 23, 23
 ]
 
+# XQF 版本11 之后会加密，所以带有加密字段偏移
+Encryption = namedtuple("Encryption", [
+    'encStream',
+    'pieceOff',  # 局面初始位置的加密偏移值
+    'srcOff',    # 着法起点的加密偏移值
+    'dstOff',    # 着法终点的加密偏移值
+    'commentOff' # 注释的加密偏移值
+    ])
+
 class XQFParser():
     def __init__(self):
-        self.file = None
+        pass
 
 # XQF棋谱读取器
 class XQFReader(XQFParser):
     def __init__(self):
-        self.xqfVer = 10
-
-        # XQF 版本11 之后会加密，所以带有加密字段偏移
-        self.encStream = [0 for i in range(32)]
-        self.pieceOff = 0    # 局面初始位置的加密偏移值
-        self.srcOff = 0      # 着法起点的加密偏移值
-        self.dstOff = 0      # 着法终点的加密偏移值
-        self.commentOff = 0  # 注释的加密偏移值
+        pass
 
     def _square54Plus221(self, x):
         return x * x * 54 + 221
 
     # 读取字符串块，“第一个byte 是程度，后面是字符串内容” 的数据
     # [len][str……]
-    def _readStrBlock(self, pos, assertMaxLen):
-        self.file.seek(pos)
-        length = self.file.read(1)[0]
+    def _readStrBlock(self, datas, pos, assertMaxLen):
+        length = datas[pos]
         assert(length <= assertMaxLen)
-        self.file.seek(pos+1)
-        return self.file.read(length).decode("gbk")
+        pos += 1
+
+        return datas[pos:pos+length].decode("gbk")
 
 
     def read(self, file_path, qipu):
-        self.file = open(file_path, 'rb')
+        fsize = os.path.getsize(file_path)
+        assert(fsize < 1024 * 500) # 不应该大于500 k
+
+        file = open(file_path, 'rb')
+        datas = file.read(fsize)
+        file.close()
 
         # 读取标记
-        self._readFlag()
-        # 版本
-        self._readVersion()
-        # 读取完版本信息，便可读取加密信息
-        self._readEncStream()
+        self._readFlag(datas)
+
         # 结果
-        self._readResult(qipu)
+        result = self._readResult(datas)
+        results = [RESULT_UNKNOWN, RESULT_WIN_RED, RESULT_WIN_BLACK, RESULT_PEACE]
+        qipu.result = results[result]
+
         # 类型
-        _type = self._readType(qipu)
+        _type = self._readType(datas)
+        addr = [TYPE_FULL, TYPE_START, TYPE_MIDDLE, TYPE_END]
+        qipu.type = addr[_type]
+
         # 读取标题
-        qipu.title = self._readStrBlock(0x50, 63)
-        qipu.gameName = self._readStrBlock(0xD0, 63)
-        qipu.gameDate = self._readStrBlock(0x110, 15)
-        qipu.gamePlace = self._readStrBlock(0x120, 15)
-        qipu.redName = self._readStrBlock(0x130, 15)
-        qipu.blackName = self._readStrBlock(0x140, 15)
-        qipu.timeRule = self._readStrBlock(0x150, 63)
-        qipu.redTime = self._readStrBlock(0x190, 15)
-        qipu.blackTime = self._readStrBlock(0x1A0, 15)
-        self.commenter = self._readStrBlock(0x1D0, 15)
-        self.author = self._readStrBlock(0x1E0, 15)
+        qipu.title = self._readStrBlock(datas, 0x50, 63)
+        qipu.gameName = self._readStrBlock(datas, 0xD0, 63)
+        qipu.gameDate = self._readStrBlock(datas, 0x110, 15)
+        qipu.gamePlace = self._readStrBlock(datas, 0x120, 15)
+        qipu.redName = self._readStrBlock(datas, 0x130, 15)
+        qipu.blackName = self._readStrBlock(datas, 0x140, 15)
+        qipu.timeRule = self._readStrBlock(datas, 0x150, 63)
+        qipu.redTime = self._readStrBlock(datas, 0x190, 15)
+        qipu.blackTime = self._readStrBlock(datas, 0x1A0, 15)
+        qipu.commenter = self._readStrBlock(datas, 0x1D0, 15)
+        qipu.author = self._readStrBlock(datas, 0x1E0, 15)
+
+        # 便可读取加密信息
+        encrypt = self._readEncryption(datas)
 
         # 初始局面信息
-        self._readSquares(qipu, _type)
+        qipu.squares = self._readSquares(datas, encrypt)
 
-    def _readFlag(self):
-        # 标记 在0开始，
-        self.file.seek(0)
+        # 读取棋谱
+        self._buildMoves(datas, encrypt, qipu)
 
-        flag = self.file.read(2).decode('gbk')  # 读取2个字节
-        print("flag:" + flag)
+    def _readFlag(self, datas):
+        # 标记 在0开始
+        flag = datas[:2].decode('gbk')  # 读取2个字节
         assert(flag == "XQ")
 
         return flag
 
-    def _readVersion(self):
-        self.file.seek(2)
-        version = self.file.read(1)[0]
-        print("version:", version)
-        self.xqfVer = version
+    def _readVersion(self, datas):
+        version = datas[2]
 
         return version
 
-    def _readEncStream(self):
+    def _readEncryption(self, datas):
         # 参考 https://github.com/xqbase/eleeye/blob/master/XQFTOOLS/xqf2pgn.cpp#L60
-        if self.xqfVer < 11:
-            return
-        self.file.seek(0)
-        tags = self.file.read(16)
+        if self._readVersion(datas) < 11:
+            return Encryption([0 for i in range(32)], 0, 0, 0, 0)
+
+        tags = datas[0:16]
 
         # 局面初始位置的加密偏移值
-        self.pieceOff = 0xFF & (self._square54Plus221(tags[13]) * tags[13])
+        pieceOff = 0xFF & (self._square54Plus221(tags[13]) * tags[13])
         # 着法起点的加密偏移值
-        self.srcOff = 0xFF & (self._square54Plus221(tags[14]) * self.pieceOff)
+        srcOff = 0xFF & (self._square54Plus221(tags[14]) * pieceOff)
         # 着法终点的加密偏移值
-        self.dstOff = 0xFF & (self._square54Plus221(tags[15]) * self.srcOff)
-        self.commentOff = (tags[12] * 256 + tags[13]) % 32000 + 767
-
-        print(self.pieceOff, self.srcOff, self.dstOff, self.commentOff)
+        dstOff = 0xFF & (self._square54Plus221(tags[15]) * srcOff)
+        commentOff = (tags[12] * 256 + tags[13]) % 32000 + 767
 
         # 基本掩码
         arg0 = tags[3]
@@ -120,61 +131,135 @@ class XQFReader(XQFParser):
             args[i] = tags[8 + i] | (tags[12 + i] & arg0)
 
         # 密钥流 = 密钥 & 密钥流掩码
+        encStream = [0 for i in range(32)]
         for i in range(32):
-            self.encStream[i] = 0xFF & (args[i % 4] & ord(encStreamMask[i]))
+            encStream[i] = 0xFF & (args[i % 4] & ord(encStreamMask[i]))
+
+        # 返回一个 namedtuple 对象
+        encrypt = Encryption(encStream, pieceOff, srcOff, dstOff, commentOff)
+
+        return encrypt
 
 
-    def _readResult(self, qipu):
-        self.file.seek(0x33)
-        result = self.file.read(1)[0]
-        addr = [RESULT_UNKNOWN, RESULT_WIN_RED, RESULT_WIN_BLACK, RESULT_PEACE]
-        qipu.result = addr[result]
+    def _readResult(self, datas):
+        result = datas[0x33]
 
         return result
 
-    def _readType(self, qipu):
-        self.file.seek(0x40)
-        _type = self.file.read(1)[0]
-        addr = [TYPE_FULL, TYPE_START, TYPE_MIDDLE, TYPE_END]
-        qipu.type = addr[_type]
+    def _readType(self, datas):
+        _type = datas[0x40]
 
         return _type
 
-    def _readSquares(self, qipu, _type):
-        if _type < 2:
+    # XQF 的坐标为左下为原点，转为左上为起点，向右下方向为正
+    # 转为 一位矩阵的Index
+    def _xqfPointToIndex(self, x, y):
+        # 转为左上为起点，向右下方向为正
+        y = 9-y
+
+        # 转位16 x 16 棋盘
+        x += RANK_LEFT
+        y += RANK_TOP
+
+        return COORD_XY(x,y)
+
+    def _readSquares(self, buff, encrypt):
+        if self._readType(buff) < 2:
             # 全局或者开局
-            qipu.squares = squaresFromInitFen()
-            return
+            return squaresFromInitFen()
 
         # 32 个棋子信息
-        self.file.seek(0x10)
-        datas = self.file.read(32)
+        datas = buff[0x10:0x10+32]
 
         # 如果是中局或者排局，那么根据"xqfhd.szPiecePos[32]"的内容摆放局面
         piecePos = [0xFF for i in range(32)]
-        if self.xqfVer < 12:
+        if self._readVersion(buff) < 12:
             for i in range(32):
-                piecePos[i] = 0xFF & (datas[i] - self.pieceOff)
+                piecePos[i] = 0xFF & (datas[i] - encrypt.pieceOff)
         else:
             # 当版本号达到12时，还要进一步解密局面初始位置
             for i in range(32):
-                piecePos[(self.pieceOff + 1 + i) % 32] = 0xFF & (datas[i] - self.pieceOff)
+                piecePos[(encrypt.pieceOff + 1 + i) % 32] = 0xFF & (datas[i] - encrypt.pieceOff)
 
+        squares = [0 for i in range(256)]
         for i in range(32):
             if piecePos[i] < 90:
-                # XQF 坐标从 坐下开始，往右上为正
-                x = int(piecePos[i] / 10)
-                y = int(piecePos[i] % 10)
+                x, y = int(piecePos[i] / 10), int(piecePos[i] % 10)
+                index = self._xqfPointToIndex(x, y)
+                squares[index] = cpcXqf2Piece[i]
 
-                # 转为左上为起点，向右下方向为正
-                y = 9-y
+        return squares
 
-                # 转位16 x 16 棋盘
-                x += RANK_LEFT
-                y += RANK_TOP
+    def _decrypt(self, datas, encStream, encIndex):
+        buff = [0 for i in range(len(datas))]
 
-                qipu.squares[COORD_XY(x,y)] = cpcXqf2Piece[i]
+        for i in range(len(datas)):
+            buff[i] = 0xFF & (datas[i] - encStream[encIndex])
+            encIndex = (encIndex + 1) % 32;
 
+        return buff, encIndex
+
+    def _buildMoves(self, datas, encrypt, qipu):
+        xqfVer = self._readVersion(datas)
+
+        def byte2Int(b):
+            return (b[0] << 0) | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)
+
+        pos = 0x400
+        encIndex = 0
+        commentLen = 0
+
+        hasNext = True
+        moveObj = qipu.moveRoot
+
+        firstMove = True # xqf 第一招为空招
+
+        while hasNext:
+            _from, _to = 0, 0
+
+            if xqfVer < 11:
+                t = datas[pos:pos+8]
+                pos += 8
+
+                _from, _to, _tag = t[0], t[1], t[2]
+                hasNext = bool(_tag & 0xf0)
+                commentLen = byte2Int(t[4:])
+            else:
+                mv, encIndex = self._decrypt(datas[pos:pos+4], encrypt.encStream, encIndex)
+                pos += 4
+                _from, _to = mv[0], mv[1]
+                hasNext = bool(mv[2] & 0x80)
+
+                if ((mv[2] & 0x20) != 0):
+                    ls, encIndex = self._decrypt(datas[pos:pos+4], encrypt.encStream, encIndex)
+                    pos += 4
+
+                    commentLen = byte2Int(ls)
+                    commentLen -= encrypt.commentOff
+                else:
+                    commentLen = 0
+
+            comment = ""
+            if commentLen > 0:
+                commontBytes, encIndex = self._decrypt(datas[pos:pos+commentLen], encrypt.encStream, encIndex)
+                pos += commentLen
+
+                comment = bytes(commontBytes).decode("gbk")
+                # print("comment:", comment)
+
+            _from = 0xFF & (_from - 24 - encrypt.srcOff)
+            _to = 0xFF & (_to - 32 - encrypt.dstOff)
+
+            fromX, fromY = int(_from / 10), int(_from % 10)
+            toX, toY = int(_to / 10), int(_to % 10)
+
+            print((fromX, fromY), (toX, toY))
+
+            if firstMove:
+                firstMove = False
+                moveObj.comment = comment
+            else:
+                pass
 
 # XQF棋谱写
 class XQFWriter(XQFParser):
