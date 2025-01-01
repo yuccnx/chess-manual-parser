@@ -1,5 +1,12 @@
 #-*- coding: UTF-8 -*-
 
+'''
+ 作者：编程想法
+ 公众号：编程想法
+ 博客：https://blog.yuccn.net
+ 邮箱：yuccnx@gmail.com
+'''
+
 import os
 from collections import namedtuple
 
@@ -126,14 +133,10 @@ class XQFReader(XQFParser):
         # 基本掩码
         arg0 = tags[3]
         # 密钥 = 前段密钥 | (后段密钥 & 基本掩码)
-        args = [0 for i in range(4)]
-        for i in range(4):
-            args[i] = tags[8 + i] | (tags[12 + i] & arg0)
+        args = [tags[8 + i]|(tags[12 + i] & arg0) for i in range(4)]
 
         # 密钥流 = 密钥 & 密钥流掩码
-        encStream = [0 for i in range(32)]
-        for i in range(32):
-            encStream[i] = 0xFF & (args[i % 4] & ord(encStreamMask[i]))
+        encStream = [0xFF & (args[i % 4] & ord(encStreamMask[i])) for i in range(32)]
 
         # 返回一个 namedtuple 对象
         encrypt = Encryption(encStream, pieceOff, srcOff, dstOff, commentOff)
@@ -153,7 +156,8 @@ class XQFReader(XQFParser):
 
     # XQF 的坐标为左下为原点，转为左上为起点，向右下方向为正
     # 转为 一位矩阵的Index
-    def _xqfPointToIndex(self, x, y):
+    def _xqfPosToIndex(self, pos):
+        x, y = int(pos / 10), int(pos % 10)
         # 转为左上为起点，向右下方向为正
         y = 9-y
 
@@ -184,8 +188,7 @@ class XQFReader(XQFParser):
         squares = [0 for i in range(256)]
         for i in range(32):
             if piecePos[i] < 90:
-                x, y = int(piecePos[i] / 10), int(piecePos[i] % 10)
-                index = self._xqfPointToIndex(x, y)
+                index = self._xqfPosToIndex(piecePos[i])
                 squares[index] = cpcXqf2Piece[i]
 
         return squares
@@ -221,12 +224,13 @@ class XQFReader(XQFParser):
                 t = datas[pos:pos+8]
                 pos += 8
 
-                _from, _to, _tag = t[0], t[1], t[2]
-                hasNext = bool(_tag & 0xf0)
+                _from, _to = t[0], t[1]
+                hasNext = bool(t[2] & 0xf0)
                 commentLen = byte2Int(t[4:])
             else:
                 mv, encIndex = self._decrypt(datas[pos:pos+4], encrypt.encStream, encIndex)
                 pos += 4
+
                 _from, _to = mv[0], mv[1]
                 hasNext = bool(mv[2] & 0x80)
 
@@ -245,21 +249,21 @@ class XQFReader(XQFParser):
                 pos += commentLen
 
                 comment = bytes(commontBytes).decode("gbk")
-                # print("comment:", comment)
-
-            _from = 0xFF & (_from - 24 - encrypt.srcOff)
-            _to = 0xFF & (_to - 32 - encrypt.dstOff)
-
-            fromX, fromY = int(_from / 10), int(_from % 10)
-            toX, toY = int(_to / 10), int(_to % 10)
-
-            print((fromX, fromY), (toX, toY))
+                print(comment)
 
             if firstMove:
                 firstMove = False
                 moveObj.comment = comment
             else:
-                pass
+                _from = self._xqfPosToIndex(0xFF & (_from - 24 - encrypt.srcOff))
+                _to = self._xqfPosToIndex(0xFF & (_to - 32 - encrypt.dstOff))
+
+                nextMoveObj = Move(MOVE(_from, _to))
+                nextMoveObj.comment = comment
+
+                moveObj.addNext(nextMoveObj)
+
+                moveObj = nextMoveObj
 
 # XQF棋谱写
 class XQFWriter(XQFParser):

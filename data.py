@@ -11,7 +11,7 @@ RESULT_WIN_RED   = 1 # 红胜
 RESULT_WIN_BLACK = 2 # 黑胜
 RESULT_PEACE     = 3 # 和棋
 
-class MOVE():
+class Move():
     def __init__(self, move = 0):
         self.comment = ""
 
@@ -25,7 +25,7 @@ class MOVE():
         self.nexts.append(next)
 
 
-class QIPU():
+class Qipu():
     def __init__(self):
         self.adddate = "" # 记谱时间
         self.title = "" # 标题
@@ -47,7 +47,7 @@ class QIPU():
 
         # 招法，注意：第一招为空招，self.rootMove.nexts 才是真正的招法
         # 目的：方便记录第一招 有变招情况
-        self.moveRoot = MOVE()
+        self.moveRoot = Move()
 
     def __str__(self):
         result = "标题:%s\n" % self.title

@@ -25,7 +25,7 @@ def writer_from_path(file_path):
 # 棋谱转换
 def convert(path_src, path_des):
 
-    qipu = QIPU()
+    qipu = Qipu()
     reader_from_path(path_src).read(path_src, qipu)
     print(qipu)
     writer_from_path(path_des).write(path_des, qipu)

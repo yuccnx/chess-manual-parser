@@ -21,6 +21,7 @@ PIECE_ROOK    = 0x05
 PIECE_CANNON  = 0x06
 PIECE_PAWN    = 0x07
 
+# 一维棋谱样式
 '''
 [
     0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 0, 0, 0,
@@ -56,9 +57,19 @@ def RANK_X(sq):
 def COORD_XY(x, y):
     return x + (y << 4)
 
-def MOVE(squares, src, to):
+def DO_MOVE(squares, src, to):
     squares[to] = squares[src]
     squares[src] = 0
+
+# 一维棋谱走法表示：低8位表示原位置，高八位表示移动到的目标位置
+def MOVE(src, dst):
+    return (src | (dst << 8))
+
+def SRC(mv):
+    return mv & 0xFF;
+
+def DST(mv):
+    return mv >> 8
 
 def CHAR_TO_PIECE(c):
     side = 0
