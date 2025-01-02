@@ -1,10 +1,17 @@
 #-*- coding: UTF-8 -*-
+'''
+ 作者：编程想法
+ 公众号：编程想法
+ 博客：https://blog.yuccn.net
+ 邮箱：yuccnx@gmail.com
+ 代码功能：东萍棋谱 读写解析器
+'''
 
 from data import *
 from fen_tool import *
 
 
-def DPMoveStrToMoves(s):
+def _DPMoveStrToMoves(s):
     result = []
     i = 0
     while i < len(s)-3:

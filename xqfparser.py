@@ -1,10 +1,10 @@
 #-*- coding: UTF-8 -*-
-
 '''
  作者：编程想法
  公众号：编程想法
  博客：https://blog.yuccn.net
  邮箱：yuccnx@gmail.com
+ 代码功能：XQF 棋谱 读写解析器
 '''
 
 import os
