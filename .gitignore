@@ -3,3 +3,4 @@
 *.ttc
 ttxq/
 .cache/
+tmp/

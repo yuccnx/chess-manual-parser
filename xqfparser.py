@@ -249,7 +249,6 @@ class XQFReader(XQFParser):
                 pos += commentLen
 
                 comment = bytes(commontBytes).decode("gbk")
-                print(comment)
 
             if firstMove:
                 firstMove = False
@@ -262,7 +261,6 @@ class XQFReader(XQFParser):
                 nextMoveObj.comment = comment
 
                 moveObj.addNext(nextMoveObj)
-
                 moveObj = nextMoveObj
 
 # XQF棋谱写
