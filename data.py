@@ -12,7 +12,8 @@ RESULT_WIN_BLACK = 2 # 黑胜
 RESULT_PEACE     = 3 # 和棋
 
 class Move():
-    def __init__(self, move = 0):
+    def __init__(self, move = 0, isRoot = False):
+        self.isRoot = isRoot
         self.comment = ""
 
         # 真正的移动，
@@ -41,13 +42,12 @@ class Qipu():
         self.blackName = ""  # 黑方棋手
 
         self.squares = [0 for i in range(256)]    # 16 x 16 fen_tool 里面的数据格式
-        self.comment = ""
         self.commenter = ""
         self.author = "" # 棋谱制作者
 
         # 招法，注意：第一招为空招，self.rootMove.nexts 才是真正的招法
         # 目的：方便记录第一招 有变招情况
-        self.moveRoot = Move()
+        self.moveRoot = Move(isRoot = True)
 
     def __str__(self):
         result = "标题:%s\n" % self.title

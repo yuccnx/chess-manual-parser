@@ -257,7 +257,7 @@ class XQFReader(XQFParser):
                 _from = self._xqfPosToIndex(0xFF & (_from - 24 - encrypt.srcOff))
                 _to = self._xqfPosToIndex(0xFF & (_to - 32 - encrypt.dstOff))
 
-                nextMoveObj = Move(MOVE(_from, _to))
+                nextMoveObj = Move(move = MOVE(_from, _to))
                 nextMoveObj.comment = comment
 
                 moveObj.addNext(nextMoveObj)

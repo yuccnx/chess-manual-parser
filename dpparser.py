@@ -20,6 +20,30 @@ def DPMoveStrToMoves(s):
 
     return result
 
+# DhtmlXQ_move_x_y_z
+# x 为 哪个分支下的变招
+# y 为 开局到此，第几步
+# z 为当前变招号
+def _toMoveKey(parentBranchIndex, stepCount, branchIndex):
+    if branchIndex == 0:
+        return "DhtmlXQ_movelist"
+
+    return "DhtmlXQ_move_%d_%d_%d" % (parentBranchIndex, stepCount, branchIndex)
+
+# DhtmlXQ_commentx_y
+# x分支号，y 第几步的说明
+def _toCommentKey(branchIndex, stepCount):
+    if branchIndex == 0:
+        return "DhtmlXQ_comment%d" % stepCount
+    return "DhtmlXQ_comment%d_%d" % (branchIndex, stepCount)
+
+def _mvToStr(_mv):
+    _from, _to = SRC(_mv), DST(_mv)
+    _fromX, _fromY = RANK_X(_from) - RANK_LEFT, RANK_Y(_from) - RANK_TOP
+    _toX, _toY = RANK_X(_to) - RANK_LEFT, RANK_Y(_to) - RANK_TOP
+
+    return "%d%d%d%d" % (_fromX, _fromY, _toX, _toY)
+
 class DPparser():
     def __init__(self):
         pass
@@ -41,43 +65,59 @@ class DPWriter(DPparser):
         if qipu.title:
             return qipu.title
 
-        if qipu.redName and qipu.blackName:
-            if qipu.result == 1:
-                return qipu.redName + " 先胜 " + qipu.blackName
-            elif qipu.result == 2:
-                return qipu.redName + " 先负 " + qipu.blackName
-            elif qipu.result == 3:
-                return qipu.redName + " 先和 " + qipu.blackName
+        if qipu.redName and qipu.blackName and qipu.result in (1,2,3):
+            resultsStr = ["", " 先胜 ", " 先负 ", " 先和 "]
+            return qipu.redName + resultsStr[qipu.result] + qipu.blackName
 
         return ""
 
+
     def _buildMoveAndMoveComment(self, qipu):
-        commentRoot = qipu.moveRoot
-        vals = {}
+        branchCount = 0
+        moveVals, commentVals = [], [] # [(k,v) ……]
 
-        if len(commentRoot.nexts) == 0:
-            return vals
+        def _build(move, parentIndex, stepCount, currentIndex):
+            nonlocal branchCount
+            nonlocal moveVals
+            nonlocal commentVals
 
-        def _mvToStr(_mv):
-            _from, _to = SRC(_mv), DST(_mv)
-            _fromX, _fromY = RANK_X(_from) - RANK_LEFT, RANK_Y(_from) - RANK_TOP
-            _toX, _toY = RANK_X(_to) - RANK_LEFT, RANK_Y(_to) - RANK_TOP
+            # 分两部分处理
+            # 1 处理 nexts[0] 也就是 嫡系 数据;2 处理非 nexts[1:] 也就是 非嫡系 数据
 
-            return "%d%d%d%d" % (_fromX, _fromY, _toX, _toY)
+            # 根是空招，不记录
+            mvStr = "" if move.isRoot else _mvToStr(move._move)
+            if move.comment:
+                k = _toCommentKey(currentIndex, stepCount)
+                v = move.comment.replace("\r", "||").replace("\n", "||")
+                commentVals.append((k, v))
 
-
-        def _build(move):
-            mvstr = _mvToStr(move._move)
-
+            nextStepCount = stepCount
             while len(move.nexts) > 0:
-                move = move.nexts[0]
-                mvstr += _mvToStr(move._move)
+                # 嫡系
+                first = move.nexts[0]
+                others = move.nexts[1:]
+                nextStepCount += 1
 
-            return mvstr
+                mvStr += _mvToStr(first._move)
+                if first.comment:
+                    k = _toCommentKey(currentIndex, nextStepCount)
+                    v = first.comment.replace("\r", "||").replace("\n", "||")
+                    commentVals.append((k, v))
 
-        vals["DhtmlXQ_movelist"] = _build(commentRoot.nexts[0])
+                # 非嫡系
+                for other in others:
+                    branchCount += 1 # 多一个分支
+                    _build(other, currentIndex, nextStepCount, branchCount)
 
-        return vals
+                move = first
+
+            moveKey = _toMoveKey(parentIndex, stepCount, currentIndex)
+            moveVals.append((moveKey, mvStr))
+
+        _build(qipu.moveRoot, 0, 0, 0)
+
+
+        return moveVals + commentVals
 
 
     def _buildSquares(self, qipu):
@@ -131,12 +171,8 @@ class DPWriter(DPparser):
         self._addDPFields("DhtmlXQ_owner", qipu.author)
 
         vals = self._buildMoveAndMoveComment(qipu)
-        for k, v in vals.items():
-            self._addDPFields(k, v)
-
-        comment = qipu.comment + qipu.moveRoot.comment
-        comment = comment.replace("\r", "||").replace("\n", "||")
-        self._addDPFields("DhtmlXQ_comment0", comment)
+        for item in vals:
+            self._addDPFields(item[0], item[1])
 
         results = {0:"未知", 1:"红胜", 2:"黑胜", 3:"和棋"}
         self._addDPFields("DhtmlXQ_result", results.get(qipu.result, "未知"))
