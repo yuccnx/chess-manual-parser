@@ -1,6 +1,6 @@
 #-*- coding: UTF-8 -*-
 '''
- 作者：编程想法
+ 作者：云中买马
  公众号：编程想法
  博客：https://blog.yuccn.net
  邮箱：yuccnx@gmail.com
