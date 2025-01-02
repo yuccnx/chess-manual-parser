@@ -1,5 +1,6 @@
 #-*- coding: UTF-8 -*-
 
+# 定义棋谱数据格式
 
 TYPE_FULL   = 0 # 全局
 TYPE_START  = 1 # 布局

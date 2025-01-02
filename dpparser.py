@@ -88,9 +88,6 @@ class DPWriter(DPparser):
             nonlocal moveVals
             nonlocal commentVals
 
-            # 分两部分处理
-            # 1 处理 nexts[0] 也就是 嫡系 数据;2 处理非 nexts[1:] 也就是 非嫡系 数据
-
             # 根是空招，不记录
             mvStr = "" if move.isRoot else _mvToStr(move._move)
             if move.comment:
@@ -98,6 +95,9 @@ class DPWriter(DPparser):
                 v = move.comment.replace("\r", "||").replace("\n", "||")
                 commentVals.append((k, v))
 
+            # 分两部分处理
+            # 1 处理 nexts[0] 也就是 嫡系 数据;
+            # 2 处理非 nexts[1:] 也就是 非嫡系 数据
             nextStepCount = stepCount
             while len(move.nexts) > 0:
                 # 嫡系
@@ -122,7 +122,6 @@ class DPWriter(DPparser):
             moveVals.append((moveKey, mvStr))
 
         _build(qipu.moveRoot, 0, 0, 0)
-
 
         return moveVals + commentVals
 
