@@ -29,7 +29,7 @@ class Move():
 
 class Qipu():
     def __init__(self):
-        self.adddate = "" # 记谱时间
+        self.addDate = "" # 记谱时间
         self.title = "" # 标题
         self.type = TYPE_FULL
         self.result = RESULT_UNKNOWN
@@ -52,6 +52,7 @@ class Qipu():
 
     def __str__(self):
         result = "标题:%s\n" % self.title
+        result += "记谱时间:%s\n" % self.addDate
         result += "时间:%s\n" % self.gameDate
         result += "地点:%s\n" % self.gamePlace
         result += "名称:%s\n" % self.gameName

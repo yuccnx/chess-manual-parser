@@ -60,9 +60,65 @@ class DPReader(DPparser):
     def __init__(self):
         pass
 
-    def read(self, file_path, qipu):
-        self.file = open(file_path, 'rb')
+    def _readFieldVal(self, s, field):
+        start = s.find("[" + field + "]")
+        if start == -1:
+            return ""
 
+        end = s.find("[/" + field + "]")
+        if end == -1:
+            return ""
+
+        start += len(field) + 2
+
+        if start >= end:
+            return ""
+
+        return s[start:end]
+
+    def read(self, file_path, qipu):
+        file = open(file_path, 'r')
+        datas = file.read()
+        file.close()
+        print(datas)
+
+        qipu.title = self._readFieldVal(datas, "DhtmlXQ_title")
+        qipu.addDate = self._readFieldVal(datas, "DhtmlXQ_adddate")
+        qipu.gameName = self._readFieldVal(datas, "DhtmlXQ_event")
+        qipu.gameDate = self._readFieldVal(datas, "DhtmlXQ_date")
+        qipu.gamePlace = self._readFieldVal(datas, "DhtmlXQ_place")
+        qipu.timeRule = self._readFieldVal(datas, "DhtmlXQ_timerule")
+        qipu.redTime = self._readFieldVal(datas, "DhtmlXQ_redtime")
+        qipu.blackTime = self._readFieldVal(datas, "DhtmlXQ_blacktime")
+
+        qipu.redName = self._readFieldVal(datas, "DhtmlXQ_red")
+        qipu.blackName = self._readFieldVal(datas, "DhtmlXQ_black")
+        qipu.author = self._readFieldVal(datas, "DhtmlXQ_author")
+        _type = self._readFieldVal(datas, "DhtmlXQ_type")
+
+        qipu.type = TYPE_FULL
+        if _type == "中局":
+            qipu.type = TYPE_MIDDLE
+        elif _type == "残局":
+            qipu.type = TYPE_END
+
+        result = self._readFieldVal(datas, "DhtmlXQ_result")
+        qipu.result = RESULT_UNKNOWN
+        if result == "红胜":
+            qipu.result = RESULT_WIN_RED
+        elif _type == "黑胜":
+            qipu.result = RESULT_WIN_BLACK
+        elif _type == "和棋":
+            qipu.result = RESULT_PEACE
+
+
+
+'''
+        self.type = TYPE_FULL
+        self.result = RESULT_UNKNOWN
+
+        self.squares = [0 for i in range(256)]    # 16 x 16 fen_tool 里面的数据格式
+'''
 # 东萍棋谱写
 class DPWriter(DPparser):
     def __init__(self):
@@ -166,19 +222,18 @@ class DPWriter(DPparser):
         self._addDPFields("DhtmlXQ_ver", "www_dpxq_com")
         self._addDPFields("DhtmlXQ_init", "500,350")
         self._addDPFields("DhtmlXQ_binit", self._buildSquares(qipu))
-        self._addDPFields("DhtmlXQ_adddate", qipu.gameDate)
+        self._addDPFields("DhtmlXQ_adddate", qipu.addDate)
+        self._addDPFields("DhtmlXQ_date", qipu.gameDate)
         self._addDPFields("DhtmlXQ_title", self._buildTitle(qipu))
-        self._addDPFields("DhtmlXQ_editdate", qipu.adddate)
+        self._addDPFields("DhtmlXQ_editdate", qipu.addDate)
         self._addDPFields("DhtmlXQ_event", qipu.gameName)
         self._addDPFields("DhtmlXQ_red", qipu.redName)
         self._addDPFields("DhtmlXQ_black", qipu.blackName)
         self._addDPFields("DhtmlXQ_place", qipu.gamePlace)
         self._addDPFields("DhtmlXQ_timerule", qipu.timeRule)
-        self._addDPFields("DhtmlXQ_owner", qipu.author)
-
-        vals = self._buildMoveAndMoveComment(qipu)
-        for item in vals:
-            self._addDPFields(item[0], item[1])
+        self._addDPFields("DhtmlXQ_redtime", qipu.redTime)
+        self._addDPFields("DhtmlXQ_blacktime", qipu.blackTime)
+        self._addDPFields("DhtmlXQ_author", qipu.author)
 
         results = {0:"未知", 1:"红胜", 2:"黑胜", 3:"和棋"}
         self._addDPFields("DhtmlXQ_result", results.get(qipu.result, "未知"))
@@ -186,7 +241,12 @@ class DPWriter(DPparser):
         types = {0:"全局",1:"布局",2:"中局",3:"残局"}
         self._addDPFields("DhtmlXQ_type", types.get(qipu.type, ""))
 
-        self._addDPFields("DhtmlXQ_refer", "https%3A//blog.yuccn.net")
+        vals = self._buildMoveAndMoveComment(qipu)
+        for item in vals:
+            self._addDPFields(item[0], item[1])
+
+
+        self._addDPFields("DhtmlXQ_generator", "https%3A//blog.yuccn.net")
         self._addDPEnd()
 
         file.write(self.buff)
@@ -197,7 +257,6 @@ class DPWriter(DPparser):
 
         datas = "[%s]%s[/%s]\r\n" % (field, val, field)
         self.buff += datas
-
 
     def _addDPStart(self):
         self.buff += "[DhtmlXQ]\r\n"
