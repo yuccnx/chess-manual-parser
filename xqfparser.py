@@ -13,7 +13,6 @@ from collections import namedtuple
 from data import *
 from fen_tool import *
 
-# 常量
 # 密钥流掩码
 # 来自：https://github.com/xqbase/eleeye/blob/master/XQFTOOLS/xqf2pgn.cpp
 encStreamMask = "[(C) Copyright Mr. Dong Shiwei.]"
@@ -38,12 +37,9 @@ Encryption = namedtuple("Encryption", [
     'commentOff' # 注释的加密偏移值
     ])
 
-class XQFParser():
-    def __init__(self):
-        pass
 
 # XQF棋谱读取器
-class XQFReader(XQFParser):
+class XQFReader():
     def __init__(self):
         pass
 
@@ -264,15 +260,9 @@ class XQFReader(XQFParser):
                 moveObj = nextMoveObj
 
 # XQF棋谱写
-class XQFWriter(XQFParser):
+class XQFWriter():
     def __init__(self):
         pass
-
-    def _writeFlag(self, buff):
-        buff += b'XQ\x0a' + (b'\x00' * 13) # 总共16个字符
-        return buff
-
-
 
     def _indexToXqfPos(self, index):
         x, y = RANK_X(index), RANK_Y(index)
@@ -282,7 +272,7 @@ class XQFWriter(XQFParser):
         y = 9-y
         return 10 * x + y
 
-    def _writeSquares(self, buff, squares):
+    def _squaresToBytes(self, squares):
         cache = bytearray(b'\xFF' * 0x20)
 
         piecesIndex = {
@@ -311,31 +301,9 @@ class XQFWriter(XQFParser):
             pos = piecesIndex[piece].pop()
             cache[pos] = self._indexToXqfPos(i)
 
-        buff += cache
+        return cache
 
-        return buff
-
-    def _writeResult(self, buff, result):
-        cache = bytearray(b'\x00' * 0x10)
-
-        # 两值定义一样，可以直接用
-        cache[3] = result
-
-        buff += cache
-
-        return buff
-
-    def _writeType(self, buff, _type):
-        cache = bytearray(b'\x00' * 0x10)
-
-        # 两值定义一样，可以直接用
-        cache[0] = _type
-
-        buff += cache
-
-        return buff
-
-    def _writeString(self, buff, s, fixSize):
+    def _xqfStringBytes(self, s, fixSize):
         cache = s.encode('gbk')
         size = len(cache)
 
@@ -343,16 +311,15 @@ class XQFWriter(XQFParser):
             cache = cache[0:fixSize - 1]
             size = fixSize - 1
         elif size < fixSize - 1:
-            cache += b'\x00' * (fixSize - len(cache) - 1)
+            cache += b'\x00' * (fixSize - size - 1)
 
         sizeCache = bytearray(b'\x00')
         sizeCache[0] = size
 
-        buff += sizeCache + cache
+        return sizeCache + cache
 
-        return buff
-
-    def _writeMoves(self, buff, moveRoot):
+    def _movesToBytes(self, moveRoot):
+        buff = bytes()
         move = moveRoot
         while move:
             c = bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00')
@@ -388,31 +355,37 @@ class XQFWriter(XQFParser):
     def write(self, file_path, qipu):
         file = open(file_path, "wb")
 
-        buff = self._writeFlag(bytes())
-        buff = self._writeSquares(buff, qipu.squares)
-        buff = self._writeResult(buff, qipu.result)
-        buff = self._writeType(buff, qipu.type)
-        buff = self._writeString(buff, qipu.title, 0x40)
+        buff = bytes()
+        # 标记
+        buff += b'XQ\x0a' + (b'\x00' * 13) # 总共16个字符
+        # 棋子
+        buff += self._squaresToBytes(qipu.squares)
+        # 结果 和 类型
+        cache = bytearray(b'\x00' * 0x20)
+        cache[3] = qipu.result  # 两值定义一样，可以直接用
+        cache[0x10] = qipu.type # 两值定义一样，可以直接用
+        buff += cache
+
+        buff += self._xqfStringBytes(qipu.title, 0x40)
         # 保留空间
         buff += b'\x00' * 0x40
 
-        buff = self._writeString(buff, qipu.gameName, 0x40)
-        buff = self._writeString(buff, qipu.gameDate, 0x10)
-        buff = self._writeString(buff, qipu.gamePlace, 0x10)
-        buff = self._writeString(buff, qipu.redName, 0x10)
-        buff = self._writeString(buff, qipu.blackName, 0x10)
-        buff = self._writeString(buff, qipu.timeRule, 0x40)
-        buff = self._writeString(buff, qipu.redTime, 0x10)
-        buff = self._writeString(buff, qipu.blackTime, 0x10)
+        buff += self._xqfStringBytes(qipu.gameName, 0x40)
+        buff += self._xqfStringBytes(qipu.gameDate, 0x10)
+        buff += self._xqfStringBytes(qipu.gamePlace, 0x10)
+        buff += self._xqfStringBytes(qipu.redName, 0x10)
+        buff += self._xqfStringBytes(qipu.blackName, 0x10)
+        buff += self._xqfStringBytes(qipu.timeRule, 0x40)
+        buff += self._xqfStringBytes(qipu.redTime, 0x10)
+        buff += self._xqfStringBytes(qipu.blackTime, 0x10)
         # 保留空间
         buff += b'\x00' * 0x20
 
-        buff = self._writeString(buff, qipu.commenter, 0x10)
-        buff = self._writeString(buff, qipu.author, 0x10)
+        buff += self._xqfStringBytes(qipu.commenter, 0x10)
+        buff += self._xqfStringBytes(qipu.author, 0x10)
         # 保留空间
         buff += b'\x00' * (0x0400 - 0x01F0)
 
-        buff = self._writeMoves(buff, qipu.moveRoot)
+        buff += self._movesToBytes(qipu.moveRoot)
 
         file.write(buff)
-
