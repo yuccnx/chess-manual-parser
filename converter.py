@@ -30,8 +30,6 @@ def convert(path_src, path_des):
         print(qipu)
         writer_from_path(path_des).write(path_des, qipu)
 
-        print(qipu.squares)
-
         print("from:%s to :%s finish!" % (path_src, path_des))
         return True
     except Exception as e:

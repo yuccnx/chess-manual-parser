@@ -65,6 +65,8 @@ class Qipu():
         result += "黑方用时:%s\n" % self.blackTime
         result += "棋谱评说者:%s\n" % self.commenter
         result += "棋谱作者:%s\n" % self.author
+        result += "评点:%s\n" % self.moveRoot.comment
+
 
         return result
 

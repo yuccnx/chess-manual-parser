@@ -11,22 +11,6 @@ from data import *
 from fen_tool import *
 
 
-def _DPMoveStrToMoves(s):
-    result = []
-    i = 0
-    while i < len(s)-3:
-        mvStr = s[i:i+4]
-        fromX = int(mvStr[0])+RANK_LEFT
-        fromY = int(mvStr[1])+RANK_TOP
-        toX = int(mvStr[2])+RANK_LEFT
-        toY = int(mvStr[3])+RANK_TOP
-
-        result.append((COORD_XY(fromX, fromY), COORD_XY(toX, toY)))
-
-        i += 4
-
-    return result
-
 # DhtmlXQ_move_x_y_z
 # x 为 哪个分支下的变招
 # y 为 开局到此，第几步
@@ -50,6 +34,27 @@ def _mvToStr(_mv):
     _toX, _toY = RANK_X(_to) - RANK_LEFT, RANK_Y(_to) - RANK_TOP
 
     return "%d%d%d%d" % (_fromX, _fromY, _toX, _toY)
+
+def _strToIndex(s):
+    return COORD_XY(int(s[0]) + RANK_LEFT, int(s[1]) + RANK_TOP)
+
+def _strToMove(s):
+    _from = _strToIndex(s[0:2])
+    _to = _strToIndex(s[2:4])
+
+    return MOVE(_from, _to)
+
+def _stringBetween(s, leftStr, rightStr):
+    start = s.find(leftStr)
+    if start == -1:
+        return ""
+
+    end = s.find(rightStr)
+    if end == -1:
+        return ""
+
+    return s[start+len(leftStr):end]
+
 
 class DPparser():
     def __init__(self):
@@ -76,11 +81,139 @@ class DPReader(DPparser):
 
         return s[start:end]
 
+    def _DPPosToIndex(self, pos):
+        x, y = int(pos[0]), int(pos[1])
+        # 转位16 x 16 棋盘
+        x += RANK_LEFT
+        y += RANK_TOP
+
+        return COORD_XY(x,y)
+
+    def _parserBInit(self, binit, qipu):
+        assert(len(binit) == 64)
+
+        qipu.squares = [0 for i in range(256)]
+
+        pieces = [
+          13, 12, 11, 10, 9, 10, 11, 12, 13, 14, 14, 15, 15, 15, 15, 15,
+          21, 20, 19, 18, 17, 18, 19, 20, 21, 22, 22, 23, 23, 23, 23, 23,
+        ]
+
+        for i in range(0, len(binit), 2):
+            pos = binit[i:i+2]
+            if pos == "99":
+                continue
+
+            qipu.squares[self._DPPosToIndex(pos)] = pieces[int(i / 2)]
+
+
+    def _extractBranch(self, datas):
+        def _splitMoveKey(k):
+            arr = k.split("_")
+            if len(arr) != 3:
+                return False, 0, 0, 0
+            return True, int(arr[0]), int(arr[1]), int(arr[2])
+
+        lines = datas.replace("\r", "\n").split("\n")
+
+        # 抽取出走法分支数据
+        _lines = []
+        for line in lines:
+            if line.startswith("[DhtmlXQ_move_"):
+               _lines.append(line.replace("DhtmlXQ_move_", ""))
+
+        movelist = self._readFieldVal(datas, "DhtmlXQ_movelist")
+        if movelist:
+            _lines.insert(0, "[0_1_0]" + movelist + "[/0_1_0]")
+
+        # 整理为如下的一个map 方便读取处理
+        branchs = {} # {index: {id:x, mv:xx, parrent_step:x, parrent_id}}
+        for line in _lines:
+            mk = _stringBetween(line, "[", "]")
+            result, parentId, parentStep, Id =  _splitMoveKey(mk)
+            if not result:
+                continue
+
+            mv = _stringBetween(line, "[%s]" % mk, "[/%s]" % mk)
+            branchs[Id] = {"id":Id, "moves":mv, "parrent_step":parentStep, "parrent_id":parentId}
+
+        return branchs
+
+    # 整理评论列表
+    def _extractComment(self, datas):
+        lists = datas.replace("[DhtmlXQ_comment", "split-comment[DhtmlXQ_comment").split("split-comment")
+        comments = {}
+        for item in lists:
+            fieldName = _stringBetween(item, "[", "]");
+            if fieldName == "" or not fieldName.startswith("DhtmlXQ_comment"):
+                continue
+
+            comments[fieldName] = self._readFieldVal(datas, fieldName);
+
+        return comments;
+
+    def _parserMoveAndComment(self, datas, qipu):
+        branchs = self._extractBranch(datas)     # 招法信息
+        comments = self._extractComment(datas)   # 评论信息
+
+        def _getMultiChange(branchs, index, step):
+            changes = []
+            for k, branch in branchs.items():
+                if branch["parrent_id"] == index and branch["parrent_step"] == step:
+                    changes.append(branch)
+
+            return changes
+
+        def _buildNext(branchs, comments, parentIndex, parrentStep, moveRoot):
+            changes = _getMultiChange(branchs, parentIndex, parrentStep)
+            if len(changes) == 0:
+                return
+
+            sorted(changes, key=lambda change: change['id'])
+
+            others = []
+
+            # 所有变招分支
+            for change in changes:
+                moveStr = change["moves"]
+                index = change["id"]
+
+                tail = moveRoot
+                assert((len(moveStr) % 4) == 0)
+
+                tailStep = parrentStep
+                for i in range(0, len(moveStr), 4):
+                    moveObj = Move(move = _strToMove(moveStr[i:i+4]))
+
+                    commentID = "DhtmlXQ_comment"
+                    if index == 0:
+                        commentID = commentID + str(tailStep)
+                    else:
+                        commentID = commentID + str(index) + "_" + str(tailStep)
+
+                    moveObj.comment = comments.get(commentID, "")
+                    tail.nexts.append(moveObj)
+                    tail = moveObj
+                    tailStep += 1
+
+                    # 先建设完嫡系数据，再建设非嫡系
+                    if i != 0:
+                        others.append((index, tailStep, tail))
+
+                # 非嫡系的数据
+                for (_index, _tailStep, _tail) in others:
+                    _buildNext(branchs, comments, _index, _tailStep, _tail)
+
+        moveRoot = qipu.moveRoot
+        moveRoot.comment = comments.get("DhtmlXQ_comment0", "")
+
+        _buildNext(branchs, comments, 0, 1, moveRoot)
+
+
     def read(self, file_path, qipu):
         file = open(file_path, 'r')
         datas = file.read()
         file.close()
-        print(datas)
 
         qipu.title = self._readFieldVal(datas, "DhtmlXQ_title")
         qipu.addDate = self._readFieldVal(datas, "DhtmlXQ_adddate")
@@ -90,12 +223,17 @@ class DPReader(DPparser):
         qipu.timeRule = self._readFieldVal(datas, "DhtmlXQ_timerule")
         qipu.redTime = self._readFieldVal(datas, "DhtmlXQ_redtime")
         qipu.blackTime = self._readFieldVal(datas, "DhtmlXQ_blacktime")
-
         qipu.redName = self._readFieldVal(datas, "DhtmlXQ_red")
         qipu.blackName = self._readFieldVal(datas, "DhtmlXQ_black")
         qipu.author = self._readFieldVal(datas, "DhtmlXQ_author")
-        _type = self._readFieldVal(datas, "DhtmlXQ_type")
+        binit = self._readFieldVal(datas, "DhtmlXQ_binit")
+        if not binit:
+            binit = "8979695949392919097717866646260600102030405060708012720323436383"
 
+        self._parserBInit(binit, qipu)
+        self._parserMoveAndComment(datas, qipu)
+
+        _type = self._readFieldVal(datas, "DhtmlXQ_type")
         qipu.type = TYPE_FULL
         if _type == "中局":
             qipu.type = TYPE_MIDDLE
@@ -112,11 +250,7 @@ class DPReader(DPparser):
             qipu.result = RESULT_PEACE
 
 
-
 '''
-        self.type = TYPE_FULL
-        self.result = RESULT_UNKNOWN
-
         self.squares = [0 for i in range(256)]    # 16 x 16 fen_tool 里面的数据格式
 '''
 # 东萍棋谱写
