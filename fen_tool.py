@@ -21,6 +21,22 @@ PIECE_ROOK    = 0x05
 PIECE_CANNON  = 0x06
 PIECE_PAWN    = 0x07
 
+PIECE_KING_RED    = PIECE_RED | PIECE_KING
+PIECE_ADVISOR_RED = PIECE_RED | PIECE_ADVISOR
+PIECE_BISHOP_RED  = PIECE_RED | PIECE_BISHOP
+PIECE_KNIGHT_RED  = PIECE_RED | PIECE_KNIGHT
+PIECE_ROOK_RED    = PIECE_RED | PIECE_ROOK
+PIECE_CANNON_RED  = PIECE_RED | PIECE_CANNON
+PIECE_PAWN_RED    = PIECE_RED | PIECE_PAWN
+
+PIECE_KING_BLACK    = PIECE_BLACK | PIECE_KING
+PIECE_ADVISOR_BLACK = PIECE_BLACK | PIECE_ADVISOR
+PIECE_BISHOP_BLACK  = PIECE_BLACK | PIECE_BISHOP
+PIECE_KNIGHT_BLACK  = PIECE_BLACK | PIECE_KNIGHT
+PIECE_ROOK_BLACK    = PIECE_BLACK | PIECE_ROOK
+PIECE_CANNON_BLACK  = PIECE_BLACK | PIECE_CANNON
+PIECE_PAWN_BLACK    = PIECE_BLACK | PIECE_PAWN
+
 # 一维棋谱样式
 '''
 [
@@ -154,3 +170,23 @@ def fenMoveStrToMove(s):
 
 def fensMoveStrToMoves(moveStr):
     return [fenMoveStrToMove(move) for  move in moveStr.split(" ")]
+
+def pieceCnName(piece):
+    piecesName = {}
+
+    piecesName[PIECE_KING_RED]      = "红帅"
+    piecesName[PIECE_ADVISOR_RED]   = "红士"
+    piecesName[PIECE_BISHOP_RED]    = "红相"
+    piecesName[PIECE_KNIGHT_RED]    = "红马"
+    piecesName[PIECE_ROOK_RED]      = "红车"
+    piecesName[PIECE_CANNON_RED]    = "红炮"
+    piecesName[PIECE_PAWN_RED]      = "红兵"
+    piecesName[PIECE_KING_BLACK]    = "黑将"
+    piecesName[PIECE_ADVISOR_BLACK] = "黑士"
+    piecesName[PIECE_BISHOP_BLACK]  = "黑象"
+    piecesName[PIECE_KNIGHT_BLACK]  = "黑马"
+    piecesName[PIECE_ROOK_BLACK]    = "黑车"
+    piecesName[PIECE_CANNON_BLACK]  = "黑炮"
+    piecesName[PIECE_PAWN_BLACK]    = "黑卒"
+
+    return piecesName.get(piece, "")

@@ -269,11 +269,49 @@ class XQFWriter(XQFParser):
         pass
 
     def _writeFlag(self, buff):
-        buff += b'XQ\x10' + (b'\x00' * 13) # 总共16个字符
+        buff += b'XQ\x0a' + (b'\x00' * 13) # 总共16个字符
         return buff
 
+
+
+    def _indexToXqfPos(self, index):
+        x, y = RANK_X(index), RANK_Y(index)
+        x -= RANK_LEFT
+        y -= RANK_TOP
+
+        y = 9-y
+        return 10 * x + y
+
     def _writeSquares(self, buff, squares):
-        buff += bytearray(b'\xFF' * 0x20)
+        cache = bytearray(b'\xFF' * 0x20)
+
+        piecesIndex = {
+          13:[0,8], # 红车
+          12:[1,7], # 红马
+          11:[2,6], # 红相
+          10:[3,5], # 红士
+          9:[4],   # 红帅
+          14:[9,10],# 红炮
+          15:[11,12,13,14,15],# 红兵
+
+          21:[16,24], # 黑车
+          20:[17,23], # 黑马
+          19:[18,22], # 黑相
+          18:[19,21], # 黑士
+          17:[20],   # 黑将
+          22:[25,26],# 黑炮
+          23:[27,28,29,30,31],# 黑卒
+        }
+
+        for i in PIECES_POS:
+            piece = squares[i]
+            if piece == 0:
+                continue
+
+            pos = piecesIndex[piece].pop()
+            cache[pos] = self._indexToXqfPos(i)
+
+        buff += cache
 
         return buff
 
@@ -315,8 +353,34 @@ class XQFWriter(XQFParser):
         return buff
 
     def _writeMoves(self, buff, moveRoot):
-        cache = b'\x18\x20\xF0\xFF\x00\x00\x00\x00'
-        buff += cache
+        move = moveRoot
+        while move:
+            c = bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00')
+            if move.isRoot:
+                c[0],c[1],c[3] = 0x18, 0x20, 0xFF
+            else:
+                # 写入移动
+                c[0] = self._indexToXqfPos(SRC(move._move)) + 24
+                c[1] = self._indexToXqfPos(DST(move._move)) + 32
+
+            # 写入是否还有下一步
+            if len(move.nexts) != 0:
+                c[2] = 0xF0
+
+            # 写入评论长度
+            bytesComment = move.comment.encode('gbk')
+            length = len(bytesComment)
+            if length > 0:
+                c[4] = 0xFF & length
+                c[5] = 0xFF & (length >> 8)
+                c[6] = 0xFF & (length >> 16)
+                c[7] = 0xFF & (length >> 24)
+
+            buff += c
+            if length > 0:
+                buff += bytesComment
+
+            move = move.nexts[0] if len(move.nexts) > 0 else None
 
         return buff
 
