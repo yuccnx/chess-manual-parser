@@ -268,6 +268,87 @@ class XQFWriter(XQFParser):
     def __init__(self):
         pass
 
+    def _writeFlag(self, buff):
+        buff += b'XQ\x10' + (b'\x00' * 13) # 总共16个字符
+        return buff
+
+    def _writeSquares(self, buff, squares):
+        buff += bytearray(b'\xFF' * 0x20)
+
+        return buff
+
+    def _writeResult(self, buff, result):
+        cache = bytearray(b'\x00' * 0x10)
+
+        # 两值定义一样，可以直接用
+        cache[3] = result
+
+        buff += cache
+
+        return buff
+
+    def _writeType(self, buff, _type):
+        cache = bytearray(b'\x00' * 0x10)
+
+        # 两值定义一样，可以直接用
+        cache[0] = _type
+
+        buff += cache
+
+        return buff
+
+    def _writeString(self, buff, s, fixSize):
+        cache = s.encode('gbk')
+        size = len(cache)
+
+        if size > fixSize - 1:
+            cache = cache[0:fixSize - 1]
+            size = fixSize - 1
+        elif size < fixSize - 1:
+            cache += b'\x00' * (fixSize - len(cache) - 1)
+
+        sizeCache = bytearray(b'\x00')
+        sizeCache[0] = size
+
+        buff += sizeCache + cache
+
+        return buff
+
+    def _writeMoves(self, buff, moveRoot):
+        cache = b'\x18\x20\xF0\xFF\x00\x00\x00\x00'
+        buff += cache
+
+        return buff
+
+
     def write(self, file_path, qipu):
-        pass
+        file = open(file_path, "wb")
+
+        buff = self._writeFlag(bytes())
+        buff = self._writeSquares(buff, qipu.squares)
+        buff = self._writeResult(buff, qipu.result)
+        buff = self._writeType(buff, qipu.type)
+        buff = self._writeString(buff, qipu.title, 0x40)
+        # 保留空间
+        buff += b'\x00' * 0x40
+
+        buff = self._writeString(buff, qipu.gameName, 0x40)
+        buff = self._writeString(buff, qipu.gameDate, 0x10)
+        buff = self._writeString(buff, qipu.gamePlace, 0x10)
+        buff = self._writeString(buff, qipu.redName, 0x10)
+        buff = self._writeString(buff, qipu.blackName, 0x10)
+        buff = self._writeString(buff, qipu.timeRule, 0x40)
+        buff = self._writeString(buff, qipu.redTime, 0x10)
+        buff = self._writeString(buff, qipu.blackTime, 0x10)
+        # 保留空间
+        buff += b'\x00' * 0x20
+
+        buff = self._writeString(buff, qipu.commenter, 0x10)
+        buff = self._writeString(buff, qipu.author, 0x10)
+        # 保留空间
+        buff += b'\x00' * (0x0400 - 0x01F0)
+
+        buff = self._writeMoves(buff, qipu.moveRoot)
+
+        file.write(buff)
 
