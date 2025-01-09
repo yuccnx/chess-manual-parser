@@ -55,13 +55,8 @@ def _stringBetween(s, leftStr, rightStr):
 
     return s[start+len(leftStr):end]
 
-
-class DPparser():
-    def __init__(self):
-        pass
-
 # 东萍棋谱读取器
-class DPReader(DPparser):
+class DPReader():
     def __init__(self):
         pass
 
@@ -81,6 +76,7 @@ class DPReader(DPparser):
 
         return s[start:end]
 
+
     def _DPPosToIndex(self, pos):
         x, y = int(pos[0]), int(pos[1])
         # 转位16 x 16 棋盘
@@ -88,6 +84,7 @@ class DPReader(DPparser):
         y += RANK_TOP
 
         return COORD_XY(x,y)
+
 
     def _parserBInit(self, binit, qipu):
         assert(len(binit) == 64)
@@ -139,6 +136,7 @@ class DPReader(DPparser):
 
         return branchs
 
+
     # 整理评论列表
     def _extractComment(self, datas):
         lists = datas.replace("[DhtmlXQ_comment", "split-comment[DhtmlXQ_comment").split("split-comment")
@@ -151,6 +149,7 @@ class DPReader(DPparser):
             comments[fieldName] = self._readFieldVal(datas, fieldName);
 
         return comments;
+
 
     def _parserMoveAndComment(self, datas, qipu):
         branchs = self._extractBranch(datas)     # 招法信息
@@ -172,7 +171,6 @@ class DPReader(DPparser):
             sorted(changes, key=lambda change: change['id'])
 
             others = []
-
             # 所有变招分支
             for change in changes:
                 moveStr = change["moves"]
@@ -254,7 +252,7 @@ class DPReader(DPparser):
         self.squares = [0 for i in range(256)]    # 16 x 16 fen_tool 里面的数据格式
 '''
 # 东萍棋谱写
-class DPWriter(DPparser):
+class DPWriter():
     def __init__(self):
         self.buff = ""
 
@@ -379,11 +377,11 @@ class DPWriter(DPparser):
         for item in vals:
             self._addDPFields(item[0], item[1])
 
-
         self._addDPFields("DhtmlXQ_generator", "https%3A//blog.yuccn.net")
         self._addDPEnd()
 
         file.write(self.buff)
+
 
     def _addDPFields(self, field, val):
         if not val:

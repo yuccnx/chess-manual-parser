@@ -101,6 +101,16 @@ def SRC(mv):
 def DST(mv):
     return mv >> 8
 
+def IS_RED(v):
+    return (v & PIECE_RED) == PIECE_RED
+
+def IS_BLACK(v):
+    return (v & PIECE_BLACK) == PIECE_BLACK
+
+# bin(111) = 7
+def PIECE_VAL(v):
+    return v & 7 #  & 111
+
 def CHAR_TO_PIECE(c):
     side = 0
     if ("A" <= c and c <= "Z"):
@@ -149,6 +159,57 @@ def squaresFromFen(fen):
 
     return squares
 
+def PIECE_TO_CHAR(piece):
+    fenValues = [
+        "", "", "", "", "", "", "", "","",
+        "K", "A", "B", "N", "R", "C", "P", "",
+        "k", "a", "b", "n", "r", "c", "p", "",
+    ]
+
+    if 0 <= piece and piece <= len(fenValues) - 1:
+        return fenValues[piece]
+
+    return ""
+
+def PIECE_TO_CN_CHAR(piece):
+    cnValues = [
+        "", "", "", "", "", "", "", "", "",
+        "帅", "士","相","马","车","炮","兵", "",
+        "将", "士","象","马","车","炮","卒", "",
+    ]
+
+    if 0 <= piece and piece < len(cnValues):
+        return cnValues[piece]
+
+    return ""
+
+def squaresToFen(sq, turnRed):
+    fen = "";
+
+    spaceCount = 0
+    for i in range(len(PIECES_POS)):
+        piece = sq[PIECES_POS[i]]
+        if piece == 0:
+            spaceCount += 1
+        else:
+            if spaceCount > 0:
+                fen = fen + str(spaceCount)
+                spaceCount = 0
+
+            fen = fen + PIECE_TO_CHAR(piece)
+
+        if i % 9 == 8:
+            if spaceCount > 0:
+                fen = fen + str(spaceCount)
+                spaceCount = 0
+
+            if i != len(PIECES_POS) - 1:
+                fen = fen + "/"
+
+    fen += " w - - 0 1" if turnRed else " b  - - 0 1"
+
+    return fen
+
 def squaresFromInitFen():
     return squaresFromFen(_initFen)
 
@@ -171,22 +232,66 @@ def fenMoveStrToMove(s):
 def fensMoveStrToMoves(moveStr):
     return [fenMoveStrToMove(move) for  move in moveStr.split(" ")]
 
-def pieceCnName(piece):
-    piecesName = {}
 
-    piecesName[PIECE_KING_RED]      = "红帅"
-    piecesName[PIECE_ADVISOR_RED]   = "红士"
-    piecesName[PIECE_BISHOP_RED]    = "红相"
-    piecesName[PIECE_KNIGHT_RED]    = "红马"
-    piecesName[PIECE_ROOK_RED]      = "红车"
-    piecesName[PIECE_CANNON_RED]    = "红炮"
-    piecesName[PIECE_PAWN_RED]      = "红兵"
-    piecesName[PIECE_KING_BLACK]    = "黑将"
-    piecesName[PIECE_ADVISOR_BLACK] = "黑士"
-    piecesName[PIECE_BISHOP_BLACK]  = "黑象"
-    piecesName[PIECE_KNIGHT_BLACK]  = "黑马"
-    piecesName[PIECE_ROOK_BLACK]    = "黑车"
-    piecesName[PIECE_CANNON_BLACK]  = "黑炮"
-    piecesName[PIECE_PAWN_BLACK]    = "黑卒"
+# 转成中文招法
+def mvToCn(mv, squares):
+    src, dst = SRC(mv), DST(mv)
 
-    return piecesName.get(piece, "")
+    fromX, fromY = RANK_X(src) - RANK_LEFT, RANK_Y(src) - RANK_TOP
+    toX, toY = RANK_X(dst) - RANK_LEFT, RANK_Y(dst) - RANK_TOP
+
+    numcns = ["零","一","二","三","四","五","六","七","八","九"]
+    nums = ["0","1","2","3","4","5","6","7","8","9"]
+
+    pc = squares[src]
+    b1 = PIECE_TO_CN_CHAR(pc)
+    b2 = numcns[9-fromX] if IS_RED(pc) else nums[fromX + 1]
+    b3 = "平"
+    if toY != fromY:
+        b3 = "进"
+        if (IS_RED(pc) and toY > fromY) or (IS_BLACK(pc) and toY < fromY):
+            b3 = "退"
+    b4 = ""
+
+    v = PIECE_VAL(pc)
+    if ((v == PIECE_ADVISOR or v == PIECE_BISHOP or v == PIECE_KNIGHT) or toY == fromY):
+        # 走斜线（象，士，马）的子，或者 横着走的时候，用 x 位置计算
+        b4 = numcns[9-toX] if IS_RED(pc) else nums[toX + 1]
+    else:
+        # 其他走直线
+        b4 = numcns[abs(toY-fromY)] if IS_RED(pc) else nums[abs(toY-fromY)]
+
+    if v == PIECE_ADVISOR or v == PIECE_BISHOP or v == PIECE_KING:
+        # 士、象、将 不用考虑前中后问题
+        return b1 + b2 + b3 + b4;
+
+    # 在同x位置上的同子的y 位置
+    ySamePieces = []
+    for y in range(10):
+        if squares[COORD_XY(RANK_X(src), y + RANK_TOP)] == pc:
+            ySamePieces.append(y)
+
+    if len(ySamePieces) == 1:
+        return b1 + b2 + b3 + b4
+
+    # 多个相同子竖着并排情况
+    b2 = PIECE_TO_CN_CHAR(pc)
+    sameCount = len(ySamePieces)
+    if sameCount == 2:
+        b1 = "后"
+        if (IS_RED(pc) and (fromY == ySamePieces[0])) or (IS_BLACK(pc) and (fromY == ySamePieces[1])):
+            b1 = "前"
+    elif sameCount == 3:
+        b1 = "中"
+        if fromY != ySamePieces[1]:
+            b1 = "后"
+            if (IS_RED(pc) and (fromY == ySamePieces[0])) or (IS_BLACK(pc) and (fromY == ySamePieces[2])):
+                b1 = "前"
+    elif sameCount == 4 or sameCount == 5:
+        index = ySamePieces.index(fromY) + 1
+        if (IS_RED(pc)):
+            index = sameCount-index;
+
+        b1 = numcns[index+1]
+
+    return b1 + b2 + b3 + b4

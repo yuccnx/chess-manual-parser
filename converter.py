@@ -2,6 +2,7 @@
 
 from xqfparser import *
 from dpparser import *
+from pgnparser import *
 from data import *
 
 def reader_from_path(file_path):
@@ -10,6 +11,8 @@ def reader_from_path(file_path):
         return XQFReader()
     elif file_path.endswith(".ubb"):
         return DPReader()
+    elif file_path.endswith(".pgn"):
+        return PgnReader()
 
     return None
 
@@ -19,6 +22,8 @@ def writer_from_path(file_path):
         return XQFWriter()
     elif file_path.endswith(".ubb"):
         return DPWriter()
+    elif file_path.endswith(".pgn"):
+        return PgnWriter()
 
     return None
 
