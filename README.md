@@ -1,4 +1,4 @@
-# chessManualParser
+# xiangqi-tool
 
 中国棋谱 互转器
 
