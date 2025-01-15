@@ -12,9 +12,68 @@
 from data import *
 from fen_tool import *
 
+def _toColumn(where):
+    i = "九八七六五四三二一".find(where)
+    if i != -1:
+        return RANK_LEFT + i
+
+    i = "123456789".find(where)
+    if i != -1:
+        return RANK_LEFT + i
+
+    # 不应该走到这
+    raise Exception('无效编号')
+
+def _nameToKey(name):
+    piecesKeys = {
+        "帅将":PIECE_KING,
+        "士仕":PIECE_ADVISOR,
+        "相象":PIECE_BISHOP,
+        "马":PIECE_KNIGHT,
+        "车":PIECE_ROOK,
+        "炮包砲":PIECE_CANNON,
+        "兵卒":PIECE_PAWN,
+    }
+
+    if k, v in piecesKeys.items():
+        if name in k:
+            return v
+
+    # 不应该走到这
+    raise Exception('无效棋子')
+
+def _findPieceByColumn(piece, squares, column):
+    checkPos = 48 + column
+    for i in range(10):
+        if piece == squares[startPos]:
+            return startPos
+
+        startPos += 16
+
+    # 不应该走到这
+    raise Exception('没找到该子')
+
 # Pgn棋谱读取
 class PgnReader():
-    def read(self, file_path, qipu):
+    # 车三进一 这种 转为移动数据
+    def strToMove(self, s, squares):
+        assert(len(s) == 4)
+        isRed = False
+        if s[3] in "一二三四五六七八九":
+            isRed = True
+
+        if s[1] in "123456789一二三四五六七八九":
+            key = _nameToKey(s[0])
+            piece = key | PIECE_RED if isRed else key | PIECE_BLACK
+            column = _toColumn(s[1])
+
+            _from = _findPieceByColumn(piece, squares, column)
+            if piece in [PIECE_KING, PIECE_ROOK, PIECE_CANNON, PIECE_PAWN]:
+                # 走直线的
+
+
+
+    def read(self, file_path):
         pass
 
 # Pgn棋谱写
