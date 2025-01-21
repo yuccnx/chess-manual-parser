@@ -12,6 +12,8 @@
 1 XQF
 2 东萍棋谱
 
+python3
+
 
 棋谱解析
 XQF 格式参考：https://github.com/xqbase/eleeye/blob/master/XQFTOOLS/xqf2pgn.cpp

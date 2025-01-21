@@ -12,6 +12,7 @@
 from data import *
 from fen_tool import *
 
+# 获取sq 的y 坐标
 def _toColumn(where):
     i = "九八七六五四三二一".find(where)
     if i != -1:
@@ -35,15 +36,16 @@ def _nameToKey(name):
         "兵卒":PIECE_PAWN,
     }
 
-    if k, v in piecesKeys.items():
+    for k, v in piecesKeys.items():
         if name in k:
             return v
 
     # 不应该走到这
     raise Exception('无效棋子')
 
-def _findPieceByColumn(piece, squares, column):
-    checkPos = 48 + column
+# 再 column 列 查找 piece
+def _findPiecePosByColumn(piece, squares, column):
+    startPos = 48 + column
     for i in range(10):
         if piece == squares[startPos]:
             return startPos
@@ -53,34 +55,80 @@ def _findPieceByColumn(piece, squares, column):
     # 不应该走到这
     raise Exception('没找到该子')
 
+
+# from：原位置
+# act : 进、退、平
+# where：中文一到九或者数字1-9
+def _toPos(piece, _from, act, where):
+    if act == "平":
+        # 横着走，y 相同，x 变化
+        return COORD_XY(_toColumn(where), RANK_Y(_from))
+
+    symbol = 1
+    if (isRed(piece) and act == "进") or (not IS_BLACK(piece) and act == "退"):
+        symbol *= -1
+
+    pieceKey = piece & 0x07
+    if pieceKey in [PIECE_KING, PIECE_ROOK, PIECE_CANNON, PIECE_PAWN]:
+        i = "一二三四五六七八九".find(where)
+        if i == -1:
+            i = "123456789".find(where)
+            assert(i != -1)
+        i += 1
+
+        # 竖着走直线的, x 不变，变y，每变动伊格变动 16
+        return _from + (i * symbol * 16)
+
+    # 到这，就是 斜着走的子了。
+    toX = _toColumn(where)
+
+    if pieceKey == PIECE_ADVISOR: # 士
+        return COORD_XY(toX, RANK_Y(_from) + 16 * symbol)
+
+    if pieceKey == PIECE_BISHOP: # 象
+        return COORD_XY(toX, RANK_Y(_from) + 32 * symbol)
+
+    if pieceKey == PIECE_KNIGHT: # 马
+        yOffset = 32 if abs(toX - RANK_X(_from)) == 1 else 16
+
+        return COORD_XY(toX, RANK_Y(_from) + yOffset * symbol)
+
+    # 异常
+    raise Exception('招法错误')
+
 # Pgn棋谱读取
 class PgnReader():
     # 车三进一 这种 转为移动数据
-    def strToMove(self, s, squares):
+    def _cnStrToMove(self, s, squares):
         assert(len(s) == 4)
         isRed = False
         if s[3] in "一二三四五六七八九":
             isRed = True
 
+
         if s[1] in "123456789一二三四五六七八九":
+            # "炮二平五" 形式
             key = _nameToKey(s[0])
             piece = key | PIECE_RED if isRed else key | PIECE_BLACK
             column = _toColumn(s[1])
 
-            _from = _findPieceByColumn(piece, squares, column)
-            if piece in [PIECE_KING, PIECE_ROOK, PIECE_CANNON, PIECE_PAWN]:
-                # 走直线的
+            _from = _findPiecePosByColumn(piece, squares, column)
+            _to = _toPos(piece, _from, s[2], s[3])
 
 
 
     def read(self, file_path):
         pass
 
+
+    # [Format "WXF"] (WXF纵线格式)
+    # [Format "ICCS"] ICCS(ICCS坐标格式)
+    # [Format "Chinese"] # 默认 中文标记格式
+
 # Pgn棋谱写
 class PgnWriter():
     def __init__(self):
         self.buff = ""
-
 
     def addLabel(self, label, val):
         self.buff += "[%s \"%s\"]\n" % (label, val)
@@ -99,8 +147,6 @@ class PgnWriter():
         comment = comment.replace("(", "<")
         comment = comment.replace(")", ">")
         self.buff += "{%s}\n" % comment
-
-        return
 
 
     def addMoves(self, qipu):
@@ -137,6 +183,7 @@ class PgnWriter():
             DO_MOVE(squares, SRC(_mv), DST(_mv))
             step += 1
 
+
     def write(self, file_path, qipu):
         self.addLabel("Game", "Chinese Chess")
         self.addLabel("Event", qipu.gameName)
@@ -148,6 +195,7 @@ class PgnWriter():
         self.addLabel("Result", Results.get(qipu.result, "*"))
         self.addLabel("Annotator", qipu.author)
         self.addLabel("Time", qipu.timeRule)
+        self.addLabel("Format", "Chinese")
         turnRed = True
         if len(qipu.moveRoot.nexts) > 0:
             turnRed = self.isRedMove(qipu.squares, qipu.moveRoot.nexts[0])

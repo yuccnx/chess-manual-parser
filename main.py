@@ -6,7 +6,10 @@ import sys
 from converter import *
 
 def printUsage():
-    print("usage: python3 main.py xqf-file pgn-file")
+    print("支持 pgn、xqf、ubb 等格式互转：")
+    print("xqf 转 pgn 用法: python3 main.py file.xqf file.pgn")
+    print("xqf 转 ubb 用法: python3 main.py file.xqf file.ubb")
+    print("其他同理。")
 
 def parseParam():
     argv = sys.argv
